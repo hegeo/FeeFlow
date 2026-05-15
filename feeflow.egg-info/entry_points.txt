@@ -1,0 +1,27 @@
+[console_scripts]
+feeflow = feeflow.cli.main:cli
+
+[feeflow.normalizer_rules]
+collapse_whitespace = feeflow.matching.normalizer:CollapseWhitespaceRule
+lower = feeflow.matching.normalizer:LowerRule
+strip_prefix = feeflow.matching.normalizer:StripPrefixRule
+strip_regex = feeflow.matching.normalizer:StripRegexRule
+strip_suffix = feeflow.matching.normalizer:StripSuffixRule
+
+[feeflow.outputs]
+excel = feeflow.outputs.excel:ExcelOutputAdapter
+platform_action = feeflow.outputs.platform_action:PlatformActionOutputAdapter
+webhook = feeflow.outputs.webhook:WebhookOutputAdapter
+
+[feeflow.platforms]
+wechat = feeflow.platforms.wechat:WeChatPlatform
+
+[feeflow.sources]
+file = feeflow.sources.file:FileSource
+sql = feeflow.sources.sql:SQLDatabaseSource
+
+[feeflow.strategies]
+exact = feeflow.matching.strategies:ExactMatchStrategy
+fuzzy = feeflow.matching.strategies:FuzzyMatchStrategy
+phonetic = feeflow.matching.strategies:PhoneticMatchStrategy
+token = feeflow.matching.strategies:TokenMatchStrategy

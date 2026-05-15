@@ -1,0 +1,255 @@
+# PMS 实体匹配工作流 — 跨系统项目信息关联
+#
+# 适用于：不同管理系统之间的客户单位、用户名称、联系方式、地址地区等信息匹配
+#
+# 用法：
+#   set data_root=D:/data
+#   set output_dir=D:/output
+#   feeflow run domains/pms_match/workflow.yaml
+
+workflow:
+  name: "pms-entity-resolution"
+  version: "1.0"
+
+  # ── 1. Normalization pipeline ─────────────────────
+  normalizer:
+    rules:
+      # Strip system prefix codes
+      - type: strip_prefix
+        patterns:
+          - "^[A-Z]+-+\\s*"
+          - "^\\d{2,6}-+\\s*"
+      # Strip organizational suffixes
+      - type: strip_suffix
+        words:
+          - "有限公司"
+          - "有限责任公司"
+          - "科技有限公司"
+          - "信息技术有限公司"
+      # Strip record type keywords
+      - type: strip_suffix
+        words:
+          - "项目"
+          - "合同"
+          - "订单"
+      # Strip remark/bracket noise
+      - type: strip_regex
+        patterns:
+          - "\\(.*?\\)"
+          - "（.*?）"
+          - "\\[.*?\\]"
+          - "【.*?】"
+      # Strip file version noise
+      - type: strip_regex
+        patterns:
+          - "[-_（）()\\[\\]【】\\s]*(v\\d+\\.?\\d*|版本\\d*|第[一二三四五六七八九十]+批|\\d{6,8}|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2})[-_（）()\\[\\]【】\\s]*"
+      - type: collapse_whitespace
+
+  # ── 2. Matching configuration ─────────────────────
+  matching:
+    # Common generic words in enterprise/project names
+    generic_words:
+      - "公司"
+      - "有限"
+      - "责任"
+      - "集团"
+      - "股份"
+      - "科技"
+      - "技术"
+      - "信息"
+      - "服务"
+      - "管理"
+      - "咨询"
+      - "工程"
+      - "建设"
+      - "项目"
+      - "系统"
+      - "平台"
+      - "中心"
+      - "研究院"
+      - "设计院"
+      - "分公司"
+      - "总"
+      - "部"
+      - "办"
+
+    # Common generic chars in addresses/regions
+    generic_chars: "省市自治区县乡村镇街道路号院楼栋单元室组"
+
+    strategies:
+      - type: exact
+        exact_score: 100.0
+      - type: token
+        containment_score: 90.0
+        token_overlap_min_ratio: 0.8
+        token_overlap_min_score: 80.0
+        token_overlap_max_score: 95.0
+      - type: fuzzy
+        threshold: 85.0
+        token_sort_weight: 0.6
+        partial_weight: 0.4
+      - type: phonetic
+        threshold: 90.0
+
+    thresholds:
+      min_score: 60.0
+      auto_match: 95.0
+      review: 80.0
+
+  # ── 3. Data sources ──────────────────────────────
+  sources:
+    # Phase 1: Normative sources (build entity index)
+    - id: "master_client_list"
+      adapter: "file"
+      phase: 1
+      config:
+        path: "${data_root}/客户主数据/master_clients.xlsx"
+        format: "xlsx"
+        column_mapping:
+          name: "客户名称"
+          id: "客户编号"
+          attributes:
+            region: "所属地区"
+            contact: "联系人"
+            phone: "联系电话"
+
+    - id: "historical_projects"
+      adapter: "file"
+      phase: 1
+      config:
+        path: "${data_root}/项目管理/已完成项目.xlsx"
+        format: "xlsx"
+        column_mapping:
+          name: "甲方名称|客户名称"
+          id: "项目编号"
+          attributes:
+            project_type: "项目类型"
+            amount: "合同金额"
+
+    - id: "region_file_scan"
+      adapter: "file"
+      phase: 1
+      config:
+        path: "${data_root}/区域项目清单"
+        format: "directory"
+        file_patterns: ["*.xlsx", "*.txt"]
+        column_mapping:
+          name: "客户名称|单位名称|项目名称"
+          id: "编号|编码"
+        txt_format:
+          name_keywords:
+            - "公司"
+            - "集团"
+            - "工厂"
+            - "基地"
+
+    - id: "csv_exports"
+      adapter: "file"
+      phase: 1
+      config:
+        path: "${data_root}/系统导出数据"
+        format: "directory"
+        file_patterns: ["*.csv"]
+
+    # Phase 2: Matching sources (resolve against entity index)
+    - id: "chat_groups"
+      adapter: "file"
+      phase: 2
+      config:
+        path: "${data_root}/通讯群组/groups.txt"
+        format: "yaml"
+        record_path: "groups"
+        field_mapping:
+          name: "display"
+          nickname: "nickname"
+          member_count: "member_count"
+          owner: "owner"
+          remark: "remark"
+        filters:
+          - field: "prefix"
+            pattern: "^[A-Z]"
+
+    - id: "submissions"
+      adapter: "file"
+      phase: 2
+      config:
+        path: "${data_root}/待处理文档"
+        format: "directory"
+        recursive: true
+        file_patterns: ["*.xlsx", "*.xls", "*.pdf", "*.docx"]
+
+    - id: "contact_log"
+      adapter: "file"
+      phase: 2
+      config:
+        path: "${data_root}/通讯记录/contact_log.txt"
+        format: "txt"
+
+  # ── 4. Enrichment ────────────────────────────────
+  enrichment:
+    - id: "assign_sales_region"
+      type: "attribute_map"
+      source: "${data_root}/人员配置/销售区域划分.xlsx"
+      match_method: "name_resolve"
+      target_attribute: "sales_region"
+
+    - id: "assign_tech_support"
+      type: "attribute_map"
+      source: "${data_root}/人员配置/技术支持区域.xls"
+      match_method: "name_resolve"
+      target_attribute: "tech_support"
+
+  # ── 5. Outputs ───────────────────────────────────
+  outputs:
+    - id: "master_report"
+      adapter: "excel"
+      config:
+        file: "${output_dir}/实体关联总表.xlsx"
+        multi_sheet: true
+        sheets:
+          - name: "企业客户"
+            columns:
+              - key: "canonical_name"
+                header: "标准客户名称"
+                width: 35
+              - key: "attributes.client_code"
+                header: "客户编号"
+                width: 12
+              - key: "attributes.sales_region"
+                header: "销售区域"
+                width: 15
+              - key: "attributes.contact"
+                header: "联系人"
+                width: 15
+              - key: "attributes.phone"
+                header: "联系电话"
+                width: 18
+              - key: "tags"
+                header: "标签"
+                width: 15
+          - name: "个人用户"
+            columns:
+              - key: "canonical_name"
+                header: "姓名"
+                width: 20
+              - key: "attributes.phone"
+                header: "联系方式"
+                width: 18
+              - key: "attributes.region"
+                header: "所在地区"
+                width: 15
+        header_fill: "4472C4"
+
+    - id: "cleanup_list"
+      adapter: "excel"
+      config:
+        file: "${output_dir}/已完结可归档清单.xlsx"
+        sheet: "可归档"
+        columns:
+          - key: "canonical_name"
+            header: "实体名称"
+            width: 35
+          - key: "tags"
+            header: "标签"
+            width: 20
+        header_fill: "ED7D31"

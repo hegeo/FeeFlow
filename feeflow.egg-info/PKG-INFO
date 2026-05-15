@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: feeflow
+Version: 0.1.0
+Summary: FeeFlow (飞流) — Entity Matching & Automation Workflow Platform
+Requires-Python: >=3.10
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rapidfuzz>=3.0
+Requires-Dist: click>=8.0
+Requires-Dist: rich>=13.0
+Requires-Dist: openpyxl>=3.0
+Provides-Extra: phonetic
+Requires-Dist: pypinyin>=0.50; extra == "phonetic"
+Provides-Extra: sql
+Requires-Dist: sqlalchemy>=2.0; extra == "sql"
+Requires-Dist: pymssql>=2.2; extra == "sql"
+Provides-Extra: excel
+Requires-Dist: openpyxl>=3.0; extra == "excel"
+Requires-Dist: xlrd>=2.0; extra == "excel"
+Provides-Extra: all
+Requires-Dist: pypinyin>=0.50; extra == "all"
+Requires-Dist: sqlalchemy>=2.0; extra == "all"
+Requires-Dist: pymssql>=2.2; extra == "all"
+Requires-Dist: xlrd>=2.0; extra == "all"

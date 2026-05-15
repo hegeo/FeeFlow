@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feeflow"
+version = "0.1.0"
+description = "FeeFlow (飞流) — Entity Matching & Automation Workflow Platform"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "rapidfuzz>=3.0",
+    "click>=8.0",
+    "rich>=13.0",
+    "openpyxl>=3.0",
+]
+
+[project.optional-dependencies]
+phonetic = ["pypinyin>=0.50"]
+sql = ["sqlalchemy>=2.0", "pymssql>=2.2"]
+excel = ["openpyxl>=3.0", "xlrd>=2.0"]
+all = ["pypinyin>=0.50", "sqlalchemy>=2.0", "pymssql>=2.2", "xlrd>=2.0"]
+
+[project.entry-points."feeflow.sources"]
+file = "feeflow.sources.file:FileSource"
+sql = "feeflow.sources.sql:SQLDatabaseSource"
+
+[project.entry-points."feeflow.platforms"]
+wechat = "feeflow.platforms.wechat:WeChatPlatform"
+
+[project.entry-points."feeflow.outputs"]
+excel = "feeflow.outputs.excel:ExcelOutputAdapter"
+webhook = "feeflow.outputs.webhook:WebhookOutputAdapter"
+platform_action = "feeflow.outputs.platform_action:PlatformActionOutputAdapter"
+
+[project.entry-points."feeflow.strategies"]
+exact = "feeflow.matching.strategies:ExactMatchStrategy"
+token = "feeflow.matching.strategies:TokenMatchStrategy"
+fuzzy = "feeflow.matching.strategies:FuzzyMatchStrategy"
+phonetic = "feeflow.matching.strategies:PhoneticMatchStrategy"
+
+[project.entry-points."feeflow.normalizer_rules"]
+strip_prefix = "feeflow.matching.normalizer:StripPrefixRule"
+strip_suffix = "feeflow.matching.normalizer:StripSuffixRule"
+strip_regex = "feeflow.matching.normalizer:StripRegexRule"
+collapse_whitespace = "feeflow.matching.normalizer:CollapseWhitespaceRule"
+lower = "feeflow.matching.normalizer:LowerRule"
+
+[project.scripts]
+feeflow = "feeflow.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["feeflow*"]
